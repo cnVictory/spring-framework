@@ -38,11 +38,15 @@ import org.springframework.util.ClassUtils;
 public class TransactionManagementConfigurationSelector extends AdviceModeImportSelector<EnableTransactionManagement> {
 
 	/**
+	 *  在springIOC容器中加载bean的定义的时候，会回调我们的selectImports 方法
+	 *  方法的返回值是我们需要导入类的全类名路径，然后这个类就会被加载到容器中
 	 * Returns {@link ProxyTransactionManagementConfiguration} or
 	 * {@code AspectJ(Jta)TransactionManagementConfiguration} for {@code PROXY}
 	 * and {@code ASPECTJ} values of {@link EnableTransactionManagement#mode()},
 	 * respectively.
 	 */
+	// 这个selectImports 是在beanDefinitionRegistryPostProcessor 处理的时候加载的
+	// 注意这里的 ProxyTransactionManagementConfiguration 这个配置类，他往容器中添加了3个 bean
 	@Override
 	protected String[] selectImports(AdviceMode adviceMode) {
 		switch (adviceMode) {

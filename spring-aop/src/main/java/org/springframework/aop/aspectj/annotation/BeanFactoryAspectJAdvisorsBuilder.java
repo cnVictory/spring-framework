@@ -16,19 +16,18 @@
 
 package org.springframework.aop.aspectj.annotation;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.aspectj.lang.reflect.PerClauseKind;
-
 import org.springframework.aop.Advisor;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Helper for retrieving @AspectJ beans from a BeanFactory and building
@@ -46,7 +45,7 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 
 	@Nullable
 	private volatile List<String> aspectBeanNames;
-
+	// 切面的缓存
 	private final Map<String, List<Advisor>> advisorsCache = new ConcurrentHashMap<>();
 
 	private final Map<String, MetadataAwareAspectInstanceFactory> aspectFactoryCache = new ConcurrentHashMap<>();
@@ -81,33 +80,50 @@ public class BeanFactoryAspectJAdvisorsBuilder {
 	 * @see #isEligibleBean
 	 */
 	public List<Advisor> buildAspectJAdvisors() {
+		// 这里是缓存切面的内容，什么时候缓存进去的呢？？？
 		List<String> aspectNames = this.aspectBeanNames;
 
 		if (aspectNames == null) {
 			synchronized (this) {
 				aspectNames = this.aspectBeanNames;
 				if (aspectNames == null) {
+					// 保存所有解析出来的Advisor集合对象
 					List<Advisor> advisors = new ArrayList<>();
+					// 保存切面的名称的集合
 					aspectNames = new ArrayList<>();
+
+					/**
+					 * Aop功能中在这里传入的是Object对象，代表去容器中获取到所有的组件的名称，然后再经过遍历
+					 * ，这个过程是十分消耗性能的，所以说Spring会在这里加入了保存切面信息的缓存
+					 * 但是事务功能不一样，事务模块的功能是直接去容器中获取Advisor类型的，选择范围小，不消耗性能，所以
+					 * Spring在事务模块中没有加入缓存来保存我们的事务相关的Advisor
+					 */
 					String[] beanNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 							this.beanFactory, Object.class, true, false);
+					// 遍历IOC容器，获取所有的bean名称
 					for (String beanName : beanNames) {
 						if (!isEligibleBean(beanName)) {
 							continue;
 						}
 						// We must be careful not to instantiate beans eagerly as in this case they
 						// would be cached by the Spring container but would not have been weaved.
+						// 通过beanName 去容器中获取对应的Class对象
 						Class<?> beanType = this.beanFactory.getType(beanName);
 						if (beanType == null) {
 							continue;
 						}
+						// 这个class是否有@Aspect注解
 						if (this.advisorFactory.isAspect(beanType)) {
+							// 是切面类，加入到缓存中
 							aspectNames.add(beanName);
 							AspectMetadata amd = new AspectMetadata(beanType, beanName);
 							if (amd.getAjType().getPerClause().getKind() == PerClauseKind.SINGLETON) {
+								// 构建切面注解的实例工厂
 								MetadataAwareAspectInstanceFactory factory =
 										new BeanFactoryAspectInstanceFactory(this.beanFactory, beanName);
+								// 真正去获取实例工厂
 								List<Advisor> classAdvisors = this.advisorFactory.getAdvisors(factory);
+								// 加入到缓存中
 								if (this.beanFactory.isSingleton(beanName)) {
 									this.advisorsCache.put(beanName, classAdvisors);
 								}

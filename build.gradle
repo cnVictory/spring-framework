@@ -1,5 +1,8 @@
 buildscript {
 	repositories {
+		maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+		maven { url 'https://maven.aliyun.com/nexus/content/repositories/jcenter' }
+		maven { url "https://repo.spring.io/plugins-release" }
 		maven { url "https://repo.spring.io/plugins-release" }
 	}
 	dependencies {
@@ -147,9 +150,17 @@ configure(allprojects) { project ->
 	}
 
 	repositories {
+
+		//阿里云镜像
+		maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
+		maven { url 'https://maven.aliyun.com/nexus/content/repositories/jcenter' }
+
+		mavenLocal()
 		mavenCentral()
 		maven { url "https://repo.spring.io/libs-release" }
 		maven { url "https://repo.spring.io/snapshot" }
+//		maven {url 'http://maven.aliyun.com/nexus/content/groups/public/'}
+//		maven {url 'http://maven.aliyun.com/nexus/content/repositories/jcenter'}
 	}
 
 	dependencies {

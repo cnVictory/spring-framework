@@ -16,9 +16,6 @@
 
 package org.springframework.aop.config;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.springframework.aop.aspectj.annotation.AnnotationAwareAspectJAutoProxyCreator;
 import org.springframework.aop.aspectj.autoproxy.AspectJAwareAdvisorAutoProxyCreator;
 import org.springframework.aop.framework.autoproxy.InfrastructureAdvisorAutoProxyCreator;
@@ -28,6 +25,9 @@ import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.core.Ordered;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Utility class for handling registration of AOP auto-proxy creators.
@@ -58,9 +58,9 @@ public abstract class AopConfigUtils {
 
 	static {
 		// Set up the escalation list...
-		APC_PRIORITY_LIST.add(InfrastructureAdvisorAutoProxyCreator.class);
-		APC_PRIORITY_LIST.add(AspectJAwareAdvisorAutoProxyCreator.class);
-		APC_PRIORITY_LIST.add(AnnotationAwareAspectJAutoProxyCreator.class);
+		APC_PRIORITY_LIST.add(InfrastructureAdvisorAutoProxyCreator.class);	// 事务的优先级最低，如果已经有其他的了，则会使用其他的
+		APC_PRIORITY_LIST.add(AspectJAwareAdvisorAutoProxyCreator.class);	//
+		APC_PRIORITY_LIST.add(AnnotationAwareAspectJAutoProxyCreator.class); // @Aspect AOP优先级居中
 	}
 
 
@@ -73,6 +73,7 @@ public abstract class AopConfigUtils {
 	public static BeanDefinition registerAutoProxyCreatorIfNecessary(
 			BeanDefinitionRegistry registry, @Nullable Object source) {
 
+		// 往beanDefinitionMap中添加了一个 InfrastructureAdvisorAutoProxyCreator 的beanDefinition
 		return registerOrEscalateApcAsRequired(InfrastructureAdvisorAutoProxyCreator.class, registry, source);
 	}
 
@@ -120,6 +121,8 @@ public abstract class AopConfigUtils {
 
 		Assert.notNull(registry, "BeanDefinitionRegistry must not be null");
 
+		// 如果容器中的beanDefinitionMap中已经包含了 名字为 “org.springframework.aop.config.internalAutoProxyCreator”
+		// 的beanDefinition， 则这里需要比较两个构造器的优先级
 		if (registry.containsBeanDefinition(AUTO_PROXY_CREATOR_BEAN_NAME)) {
 			BeanDefinition apcDefinition = registry.getBeanDefinition(AUTO_PROXY_CREATOR_BEAN_NAME);
 			if (!cls.getName().equals(apcDefinition.getBeanClassName())) {
@@ -132,6 +135,7 @@ public abstract class AopConfigUtils {
 			return null;
 		}
 
+		// 事务的优先级在这里是最高的 order值为Integer.MIN_VALUE
 		RootBeanDefinition beanDefinition = new RootBeanDefinition(cls);
 		beanDefinition.setSource(source);
 		beanDefinition.getPropertyValues().add("order", Ordered.HIGHEST_PRECEDENCE);

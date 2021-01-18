@@ -16,15 +16,14 @@
 
 package org.springframework.web.context;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.lang.Nullable;
 import org.springframework.web.WebApplicationInitializer;
+
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
 
 /**
  * Convenient base class for {@link WebApplicationInitializer} implementations
@@ -45,8 +44,19 @@ public abstract class AbstractContextLoaderInitializer implements WebApplication
 	protected final Log logger = LogFactory.getLog(getClass());
 
 
+	/**
+	 * 注册上下文加载的监听器
+	 * @param servletContext the {@code ServletContext} to initialize
+	 * @throws ServletException
+	 */
 	@Override
 	public void onStartup(ServletContext servletContext) throws ServletException {
+		/*
+			当spring使用xml配置进行ssm项目的时候，会配置
+			<listener>
+				<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+			</listener>
+		 */
 		registerContextLoaderListener(servletContext);
 	}
 
@@ -57,10 +67,15 @@ public abstract class AbstractContextLoaderInitializer implements WebApplication
 	 * @param servletContext the servlet context to register the listener against
 	 */
 	protected void registerContextLoaderListener(ServletContext servletContext) {
+
+		// 创建根的上下文环境WebApplicationContext(AnnotationConfigWebApplicationContext) 对象
 		WebApplicationContext rootAppContext = createRootApplicationContext();
+		// 如果创建的对象不为空
 		if (rootAppContext != null) {
+			// 创建监听器，把初始化的根容器设置到监听器中
 			ContextLoaderListener listener = new ContextLoaderListener(rootAppContext);
 			listener.setContextInitializers(getRootApplicationContextInitializers());
+			// 把监听器注册到web容器中
 			servletContext.addListener(listener);
 		}
 		else {

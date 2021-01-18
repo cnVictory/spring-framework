@@ -16,53 +16,22 @@
 
 package org.springframework.beans.factory.support;
 
-import java.beans.ConstructorProperties;
-import java.lang.reflect.Array;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Executable;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.apache.commons.logging.Log;
-
-import org.springframework.beans.BeanMetadataElement;
-import org.springframework.beans.BeanWrapper;
-import org.springframework.beans.BeanWrapperImpl;
-import org.springframework.beans.BeansException;
-import org.springframework.beans.TypeConverter;
-import org.springframework.beans.TypeMismatchException;
-import org.springframework.beans.factory.BeanCreationException;
-import org.springframework.beans.factory.BeanDefinitionStoreException;
-import org.springframework.beans.factory.InjectionPoint;
-import org.springframework.beans.factory.NoSuchBeanDefinitionException;
-import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
-import org.springframework.beans.factory.UnsatisfiedDependencyException;
+import org.springframework.beans.*;
+import org.springframework.beans.factory.*;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.beans.factory.config.ConstructorArgumentValues;
 import org.springframework.beans.factory.config.ConstructorArgumentValues.ValueHolder;
 import org.springframework.beans.factory.config.DependencyDescriptor;
-import org.springframework.core.CollectionFactory;
-import org.springframework.core.GenericTypeResolver;
-import org.springframework.core.MethodParameter;
-import org.springframework.core.NamedThreadLocal;
-import org.springframework.core.ParameterNameDiscoverer;
+import org.springframework.core.*;
 import org.springframework.lang.Nullable;
-import org.springframework.util.Assert;
-import org.springframework.util.ClassUtils;
-import org.springframework.util.MethodInvoker;
-import org.springframework.util.ObjectUtils;
-import org.springframework.util.ReflectionUtils;
-import org.springframework.util.StringUtils;
+import org.springframework.util.*;
+
+import java.beans.ConstructorProperties;
+import java.lang.reflect.*;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.*;
 
 /**
  * Delegate for resolving constructors and factory methods.
@@ -120,30 +89,48 @@ class ConstructorResolver {
 		BeanWrapperImpl bw = new BeanWrapperImpl();
 		this.beanFactory.initBeanWrapper(bw);
 
+		// 当前bean被使用的构造器对象
 		Constructor<?> constructorToUse = null;
+		// 封装构造器参数对象
 		ArgumentsHolder argsHolderToUse = null;
+		// 构造器使用的参数对象
 		Object[] argsToUse = null;
 
 		if (explicitArgs != null) {
 			argsToUse = explicitArgs;
 		}
 		else {
+			/*
+				针对我们单实例的bean的时候，第一次都会走解析的流程，那么在这里加入缓存没有任何意思
+				那么我们多例的bean，每一次调用getBean的时候都会调用一次构造函数，那么缓存在这里就会起到很好的作用
+				因为解析构造函数，逻辑十分复杂，很消耗性能
+			 */
 			Object[] argsToResolve = null;
 			synchronized (mbd.constructorArgumentLock) {
+				// 从缓存中获取已经解析的构造方法
 				constructorToUse = (Constructor<?>) mbd.resolvedConstructorOrFactoryMethod;
 				if (constructorToUse != null && mbd.constructorArgumentsResolved) {
+					// 从缓存中取出解析出来构造器对应的参数
 					// Found a cached constructor...
 					argsToUse = mbd.resolvedConstructorArguments;
 					if (argsToUse == null) {
+						// 如果argsToUse 为空，则获取未解析的构造方法参数列表
 						argsToResolve = mbd.preparedConstructorArguments;
 					}
 				}
 			}
+			/*
+				缓存中存在，则解析存储在 BeanDefinition 中的参数
+				如给定方法的构造函数 A(int ,int ) ，则通过此方法后就会把配置文件中的 ("1","1")转换为(1,1)
+				缓存中的值可能是原始值也有可能是最终值
+			 */
 			if (argsToResolve != null) {
+				// 在这里，也有可能解析循环依赖，但是在这里不能解决循环依赖，因为还没有到暴露早期对象
 				argsToUse = resolvePreparedArguments(beanName, mbd, bw, constructorToUse, argsToResolve, true);
 			}
 		}
 
+		// 缓存中没有
 		if (constructorToUse == null || argsToUse == null) {
 			// Take specified constructors, if any.
 			Constructor<?>[] candidates = chosenCtors;
@@ -174,6 +161,7 @@ class ConstructorResolver {
 			}
 
 			// Need to resolve the constructor.
+			// 该标志是否需要解析出构造函数  chosenCtors 传入进来的不为空
 			boolean autowiring = (chosenCtors != null ||
 					mbd.getResolvedAutowireMode() == AutowireCapableBeanFactory.AUTOWIRE_CONSTRUCTOR);
 			ConstructorArgumentValues resolvedValues = null;

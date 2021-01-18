@@ -16,16 +16,6 @@
 
 package org.springframework.web.servlet.support;
 
-import java.util.EnumSet;
-
-import javax.servlet.DispatcherType;
-import javax.servlet.Filter;
-import javax.servlet.FilterRegistration;
-import javax.servlet.FilterRegistration.Dynamic;
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRegistration;
-
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.core.Conventions;
 import org.springframework.lang.Nullable;
@@ -35,6 +25,10 @@ import org.springframework.web.context.AbstractContextLoaderInitializer;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.springframework.web.servlet.FrameworkServlet;
+
+import javax.servlet.*;
+import javax.servlet.FilterRegistration.Dynamic;
+import java.util.EnumSet;
 
 /**
  * Base class for {@link org.springframework.web.WebApplicationInitializer}
@@ -58,9 +52,68 @@ public abstract class AbstractDispatcherServletInitializer extends AbstractConte
 	public static final String DEFAULT_SERVLET_NAME = "dispatcher";
 
 
+	/**
+	 * 该方法需要承上启下
+	 * 当使用传统xml方式配置ssm的时候：
+	 *
+	 * <web-app>
+	 * 		<!-- Configure ContextLoaderListener to use AnnotationConfigWebApplicationContext
+	 * 			instead of the default XmlWebApplicationContext -->
+	 * 		<context-param>
+	 * 			<param-name>contextClass</param-name>
+	 * 			<param-value>
+	 * 				org.springframework.web.context.support.AnnotationConfigWebApplicationContext
+	 * 			</param-value>
+	 * 		</context-param>
+	 *
+	 * 		<!-- Configuration locations must consist of one or more comma- or space-delimited
+	 * 			fully-qualified @Configuration classes. Fully-qualified packages may also be
+	 * 			specified for component-scanning -->
+	 * 		<context-param>
+	 * 			<param-name>contextConfigLocation</param-name>
+	 * 			<param-value>com.acme.AppConfig</param-value>
+	 * 		</context-param>
+	 *
+	 * 		<!-- Bootstrap the root application context as usual using ContextLoaderListener -->
+	 * 		<listener>
+	 * 			<listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+	 * 		</listener>
+	 *
+	 * 		<!-- Declare a Spring MVC DispatcherServlet as usual -->
+	 * 		<servlet>
+	 * 			<servlet-name>dispatcher</servlet-name>
+	 * 			<servlet-class>org.springframework.web.servlet.DispatcherServlet</servlet-class>
+	 * 			<!-- Configure DispatcherServlet to use AnnotationConfigWebApplicationContext
+	 * 				instead of the default XmlWebApplicationContext -->
+	 * 			<init-param>
+	 * 				<param-name>contextClass</param-name>
+	 * 				<param-value>
+	 * 					org.springframework.web.context.support.AnnotationConfigWebApplicationContext
+	 * 				</param-value>
+	 * 			</init-param>
+	 * 			<!-- Again, config locations must consist of one or more comma- or space-delimited
+	 * 				and fully-qualified @Configuration classes -->
+	 * 			<init-param>
+	 * 				<param-name>contextConfigLocation</param-name>
+	 * 				<param-value>com.acme.web.MvcConfig</param-value>
+	 * 			</init-param>
+	 * 		</servlet>
+	 *
+	 * 		<!-- map all requests for /app/* to the dispatcher servlet -->
+	 * 		<servlet-mapping>
+	 * 			<servlet-name>dispatcher</servlet-name>
+	 * 			<url-pattern>/app/*</url-pattern>
+	 * 		</servlet-mapping>
+	 * 	</web-app>
+	 *
+	 * @param servletContext
+	 * @throws ServletException
+	 */
 	@Override
 	public void onStartup(ServletContext servletContext) throws ServletException {
+		// 实例化spring root 上下文。 触发IOC 根容器的启动
 		super.onStartup(servletContext);
+		// 注册我们的DispatcherServlet 创建我们Spring web 上下文对象。 触发子容器的创建
 		registerDispatcherServlet(servletContext);
 	}
 
@@ -76,12 +129,15 @@ public abstract class AbstractDispatcherServletInitializer extends AbstractConte
 	 * @param servletContext the context to register the servlet against
 	 */
 	protected void registerDispatcherServlet(ServletContext servletContext) {
+		// 获取DispatcherServlet的名称
 		String servletName = getServletName();
 		Assert.hasLength(servletName, "getServletName() must not return null or empty");
 
+		// 创建WebApplicationContext对象
 		WebApplicationContext servletAppContext = createServletApplicationContext();
 		Assert.notNull(servletAppContext, "createServletApplicationContext() must not return null");
 
+		// 创建DispatcherServlet对象，所以tomcat会对DispatcherServlet进行生命周期管理
 		FrameworkServlet dispatcherServlet = createDispatcherServlet(servletAppContext);
 		Assert.notNull(dispatcherServlet, "createDispatcherServlet(WebApplicationContext) must not return null");
 		dispatcherServlet.setContextInitializers(getServletApplicationContextInitializers());

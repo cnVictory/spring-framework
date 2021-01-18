@@ -16,12 +16,8 @@
 
 package org.springframework.aop.framework.autoproxy;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.aop.Advisor;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.BeanCurrentlyInCreationException;
@@ -29,6 +25,9 @@ import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.util.Assert;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Helper for retrieving standard Spring Advisors from a BeanFactory,
@@ -66,28 +65,48 @@ public class BeanFactoryAdvisorRetrievalHelper {
 	 */
 	public List<Advisor> findAdvisorBeans() {
 		// Determine list of advisor bean names, if not cached already.
+		/*
+		 探测器字段缓存中 cachedAdvisorBeanNames 是用来保存我们的Advisor全类名
+		 会在第一个单实例bean的中会去把这个Advisor名称解析出来
+		 */
 		String[] advisorNames = this.cachedAdvisorBeanNames;
 		if (advisorNames == null) {
 			// Do not initialize FactoryBeans here: We need to leave all regular beans
 			// uninitialized to let the auto-proxy creator apply to them!
+			/*
+				去我们的容器中获取到实现了Advisor接口的实现类
+				而我们的事务注解@EnableTransactionManagement 导入了一个叫ProxyTransactionManagementConfiguration 配置类
+				在这个类中配置了3个bean
+				@Bean(name=TransactionManagementConfigUtils.TRANSACTION_ADVISOR_BEAN_NAME)
+				@Role(BeanDefinition.ROLE_INFRASTRUCTURE)
+				public BeanFactoryTransactionAttributeSourceAdvisor  transactionAdvisor()
+				然后把他的名字获取出来保存到 本类的属性变量cachedAdvisorBeanNames中
+			 */
 			advisorNames = BeanFactoryUtils.beanNamesForTypeIncludingAncestors(
 					this.beanFactory, Advisor.class, true, false);
+			// cachedAdvisorBeanNames是一个类级别的缓存
 			this.cachedAdvisorBeanNames = advisorNames;
 		}
+		// 如果在容器中没有找到，返回一个空集合
 		if (advisorNames.length == 0) {
 			return new ArrayList<>();
 		}
 
 		List<Advisor> advisors = new ArrayList<>();
+		// IOC容器中找到了我们配置的BeanFactoryTransactionAttributeSourceAdvisor
 		for (String name : advisorNames) {
+			// 判断他是不是合适的，使我们想要的
 			if (isEligibleBean(name)) {
+				// BeanFactoryTransactionAttributeSourceAdvisor是不是正在创建的bean
 				if (this.beanFactory.isCurrentlyInCreation(name)) {
 					if (logger.isTraceEnabled()) {
 						logger.trace("Skipping currently created advisor '" + name + "'");
 					}
 				}
+				// 不是正在创建的bean
 				else {
 					try {
+						// 显示的调用getBean方法创建我们的BeanFactoryTransactionAttributeSourceAdvisor返回去
 						advisors.add(this.beanFactory.getBean(name, Advisor.class));
 					}
 					catch (BeanCreationException ex) {

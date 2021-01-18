@@ -16,18 +16,8 @@
 
 package org.springframework.web.context;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.ConcurrentHashMap;
-
-import javax.servlet.ServletContext;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
 import org.springframework.beans.BeanUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextException;
@@ -42,6 +32,14 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
+
+import javax.servlet.ServletContext;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Performs the actual initialization work for the root application context.
@@ -275,11 +273,20 @@ public class ContextLoader {
 		try {
 			// Store context in local instance variable, to guarantee that
 			// it is available on ServletContext shutdown.
+			// 在创建xml版本的时候，context是空的，所以我们在这里需要创建根容器
 			if (this.context == null) {
 				this.context = createWebApplicationContext(servletContext);
 			}
+
+			/*
+				不为空，很明显我们这个是注解版本进来的，在外面就已经传递进来了context对象  AnnotationConfigWebApplicationContext
+				判断我们的AnnotationConfigWebApplicationContext是不是ConfigurableWebApplicationContext 类型的
+			 */
 			if (this.context instanceof ConfigurableWebApplicationContext) {
 				ConfigurableWebApplicationContext cwac = (ConfigurableWebApplicationContext) this.context;
+
+				// 判断ConfigurableWebApplicationContext 配置上下文版本的是不是激活了
+				// 这里指的是父容器有没有调用refresh() 方法，如果父容器调用了refresh方法，那么父容器就会被激活
 				if (!cwac.isActive()) {
 					// The context has not yet been refreshed -> provide services such as
 					// setting the parent context, setting the application context id, etc
@@ -289,6 +296,8 @@ public class ContextLoader {
 						ApplicationContext parent = loadParentContext(servletContext);
 						cwac.setParent(parent);
 					}
+
+					// 刷新父容器
 					configureAndRefreshWebApplicationContext(cwac, servletContext);
 				}
 			}
@@ -398,6 +407,8 @@ public class ContextLoader {
 		}
 
 		customizeContext(sc, wac);
+
+		// 父容器刷新
 		wac.refresh();
 	}
 
